@@ -1,0 +1,73 @@
+version: "3"
+services:
+  zk:
+    image: debezium/zookeeper:0.5
+    volumes:
+      - gitlocal:/gitlocal
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+    volumes:
+      - zk:/zookeeper/data
+  kafka:
+    image: debezium/kafka:0.5
+    environment:
+        - ZOOKEEPER_CONNECT=zk:2181
+    volumes:
+      - dblocal:/var/lib/postgresql/data
+    ports:
+      - "9092:9092"
+    links:
+      - zk
+    volumes:
+      - kafka-data:/kafka/data
+      - kafka-config:/kafka/config
+  mysql:
+    image: debezium/example-mysql:0.5
+    environment:
+        - MYSQL_ROOT_PASSWORD=debezium
+        - MYSQL_USER=mysqluser
+        - MYSQL_PASSWORD=mysqlpw
+    ports:
+      - "3306:3306"
+  pg96:
+    image: debezium/postgres:latest
+    ports:
+      - "5432:5432"
+  connect:
+    image: debezium/connect:0.5
+    environment:
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - BOOTSTRAP_SERVERS=kafka:9092
+    links:
+        - kafka
+        - mysql
+        - pg96
+        - zk
+    ports:
+        - "8083:8083"
+  dev:
+    image: dbzdev:latest 
+    cap_add:
+        - SYS_PTRACE
+    environment:
+        - MYSQL_PW=debezium
+        - MYSQL_USER=mysqluser
+        - MYSQL_PASSWORD=mysqlpw
+    links:
+        - kafka
+        - mysql
+        - zk
+    volumes:
+      - /home/junior/git:/git:rw
+      - /home/junior/docker/scripts:/scripts:ro
+    entrypoint:
+      - /scripts/idle.sh
+volumes:
+    mysql: 
+    kafka-data:
+    kafka-config:
+    zk:
